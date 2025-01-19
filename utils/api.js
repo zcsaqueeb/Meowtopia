@@ -391,7 +391,6 @@ export async function currentRoom(authToken, proxy, retries = 5) {
     }
 }
 
-
 export async function getUserFarm(authToken, proxy, retries = 5) {
     const useragent = newAgent(proxy);
     const headers = {

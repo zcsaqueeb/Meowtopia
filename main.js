@@ -154,7 +154,7 @@ async function upgradeDecortion(token, diamond, proxy, i) {
                     if (list_skins.length === 0) continue;
 
                     for (const skin of list_skins) {
-                        if (skin.type === 1 && skin.price > diamond) continue; // skip premium decor if not enough diamond
+                        if (skin.type === 1 && skin.price > diamond) continue; // skip premium decor if not enough diamond 
                         else if (unlockDecorIds.includes(skin.id)) continue; // skip unlocked decor
                         log.info(`account #${i + 1} trying to build decorate:`, { room_id, decorId, skinId: skin.id })
                         const build = await Kopi.buidDecor(token, decorId, skin.id, room_id, proxy);
