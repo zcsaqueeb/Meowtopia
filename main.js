@@ -16,10 +16,10 @@ async function checkingUser(token, proxy, i) {
         const { user_name, asset_info } = userInfo;
         const { diamond, gacha_ticket, METO } = asset_info;
         log.info(`user info for account ${i + 1}:`, { user_name, diamond, gacha_ticket, METO, farmingReward })
-        return { gacha_ticket, diamond };
+        return { gacha_ticket, diamond, farmingReward };
     } catch (error) {
         log.info(`error when checking user info for account ${i + 1}:`, error.message);
-        return { gacha_ticket: 0, diamond: 0 };
+        return { gacha_ticket: 0, diamond: 0, farmingReward: 0 };
     }
 }
 
@@ -31,7 +31,10 @@ async function autoCheckin(token, response, proxy, i) {
 
     try {
         log.info(`Fetching user daily checkin...`);
-        const claimedReward = response.data.week_reward.find(daily => daily.tbl_user_7day.is_claim === 1);
+        const claimedReward = response.data.week_reward
+            .slice()
+            .reverse()
+            .find(daily => daily.tbl_user_7day.is_claim === 1);
 
         const lastCheckIn = claimedReward?.tbl_user_7day?.updated_at || null;
         const lastDay = claimedReward?.tbl_user_7day?.week_day_id || 0;
@@ -43,7 +46,7 @@ async function autoCheckin(token, response, proxy, i) {
         if (lastDateCheckIn !== currentDate) {
             log.info(`trying to daily checkin for account #${i + 1}...`);
             const daily = await Kopi.dailyClaim(token, lastDay + 1, proxy);
-            log.info(`account #${i + 1} daily claim result:`, daily?.data || `Already Checkin for day ${day}`);
+            log.info(`account #${i + 1} daily claim result:`, daily?.data || `Already Checkin for day ${lastDay + 1}`);
         } else {
             log.warn(`Skipping daily checkin for account #${i + 1}, already checked in today.`);
         }
@@ -51,7 +54,6 @@ async function autoCheckin(token, response, proxy, i) {
         log.error(`error when check in`, error.message)
     }
 }
-
 
 async function run() {
     log.info(bedduSalaam);
@@ -77,7 +79,8 @@ async function run() {
 
             const loginRes = await Kopi.loginUser(wallet, proxy);
             const token = loginRes?.data?.access_token;
-            let { gacha_ticket, diamond } = await checkingUser(token, proxy, i);
+            if (!token) continue;
+            let { gacha_ticket, diamond, farmingReward } = await checkingUser(token, proxy, i);
 
             while (gacha_ticket > 0) {
                 log.info(`Trying Gatcha for account #${i + 1}...`);
@@ -87,10 +90,12 @@ async function run() {
                 gacha_ticket--;
             }
 
-            log.info(`trying to claiming farm Rewards for account #${i + 1}...`);
-            const farmRes = await Kopi.claimFarm(token, proxy);
-            const { idClaim, amount } = farmRes?.data || { idClaim: 0, amount: 0 };
-            log.info(`account #${i + 1} claim farm response:`, { idClaim, amount });
+            if (farmingReward > 1) {
+                log.info(`trying to claiming farm Rewards for account #${i + 1}...`);
+                const farmRes = await Kopi.claimFarm(token, proxy);
+                const { idClaim, amount } = farmRes?.data || { idClaim: 0, amount: 0 };
+                log.info(`account #${i + 1} claim farm response:`, { idClaim, amount });
+            }
 
             await playingGame(token, proxy, i);
             await upgradeDecortion(token, diamond, proxy, i);
@@ -149,13 +154,16 @@ async function upgradeDecortion(token, diamond, proxy, i) {
                     if (list_skins.length === 0) continue;
 
                     for (const skin of list_skins) {
-                        if (skin.type === 1) continue; // skip premium decor
+                        if (skin.type === 1 && skin.price > diamond) continue; // skip premium decor if not enough diamond
                         else if (unlockDecorIds.includes(skin.id)) continue; // skip unlocked decor
                         log.info(`account #${i + 1} trying to build decorate:`, { room_id, decorId, skinId: skin.id })
                         const build = await Kopi.buidDecor(token, decorId, skin.id, room_id, proxy);
                         if (build === "Wait building") {
                             log.warn(`Already have pending building - skipping...`);
                             break;
+                        }
+                        if (skin.type === 1) {
+                            diamond -= skin.price;
                         }
                         log.info(`build decoration result is success?`, build?.success || false)
                     };
