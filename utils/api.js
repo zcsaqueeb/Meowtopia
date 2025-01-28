@@ -6,7 +6,7 @@ import {
     delay
 } from './helper.js'
 
-const URL_API = `https://api-mewtopia.slimerevolution.com/api/v1/`
+const URL_API = `https://api.meowtopia.fun/api/v1/`
 
 export async function playGame(authToken, proxy, retries = 5) {
     const useragent = newAgent(proxy);
@@ -267,7 +267,54 @@ export async function dailyClaim(authToken, Day, proxy, retries = 5) {
         return null;
     }
 }
+export async function claimRewardMails(authToken, MailId, proxy, retries = 5) {
+    const useragent = newAgent(proxy);
+    const payload = { MailId }
+    const headers = {
+        Authorization: `Bearer ${authToken}`
+    };
 
+    try {
+        const response = await axios.post(`${URL_API}mail/reveice`, payload, { headers, httpsAgent: useragent });
+        return response.data;
+    } catch (error) {
+        const attempt = 6 - retries;
+        log.error(`Error on attempt ${attempt}:`, error.response ? error.response.data : error.message);
+
+        if (retries > 0) {
+            log.info(`Retrying in ${attempt} second(s)...`);
+            await delay(attempt)
+            return await dailyClaim(authToken, Day, proxy, retries - 1);
+        }
+
+        log.error('Max retries reached. Giving up.');
+        return null;
+    }
+}
+
+export async function getUserMail(authToken, proxy, retries = 5) {
+    const useragent = newAgent(proxy);
+    const headers = {
+        Authorization: `Bearer ${authToken}`
+    };
+
+    try {
+        const response = await axios.get(`${URL_API}mail/list`, { headers, httpsAgent: useragent });
+        return response.data;
+    } catch (error) {
+        const attempt = 6 - retries;
+        log.error(`Error on attempt ${attempt}:`, error.response ? error.response.data : error.message);
+
+        if (retries > 0) {
+            log.info(`Retrying in ${attempt} second(s)...`);
+            await delay(attempt)
+            return await getUserInfo(authToken, proxy, retries - 1);
+        }
+
+        log.error('Max retries reached. Giving up.');
+        return null;
+    }
+}
 
 export async function getUserInfo(authToken, proxy, retries = 5) {
     const useragent = newAgent(proxy);

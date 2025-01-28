@@ -43,6 +43,8 @@ async function autoCheckin(token, response, proxy, i) {
         const currentDate = new Date().toISOString().split('T')[0];
         log.info(`Last Checkin for account #${i + 1}:`, `[ ${lastDateCheckIn} ]`)
 
+        if (lastDateCheckIn == '2025-01-24') return;
+
         if (lastDateCheckIn !== currentDate) {
             log.info(`trying to daily checkin for account #${i + 1}...`);
             const daily = await Kopi.dailyClaim(token, lastDay + 1, proxy);
@@ -80,8 +82,22 @@ async function run() {
             const loginRes = await Kopi.loginUser(wallet, proxy);
             const token = loginRes?.data?.access_token;
             if (!token) continue;
+            const mails = await Kopi.getUserMail(token, proxy);
+            if (mails?.data?.length > 0) {
+                log.info(`Checking mails for account #${i + 1}...`);
+                const unclaimedIds = mails.data
+                    .filter(item => item.is_claim === 0)
+                    .map(item => item.id);
+                if (unclaimedIds.length === 0) {
+                    log.info(`No Rewards from emails can be claimed...`)
+                }
+                for (const mailId of unclaimedIds) {
+                    log.info(`account #${i + 1} trying to claim mail reward with id:`, mailId);
+                    const resultMail = await Kopi.claimRewardMails(token, mailId, proxy);
+                    log.info(`account #${i + 1} claim mail reward result:`, resultMail);
+                }
+            }
             let { gacha_ticket, diamond, farmingReward } = await checkingUser(token, proxy, i);
-
             while (gacha_ticket > 0) {
                 log.info(`Trying Gatcha for account #${i + 1}...`);
                 const gatchaRes = await Kopi.gatcha(token, wallet, proxy);
