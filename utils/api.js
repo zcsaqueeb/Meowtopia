@@ -461,4 +461,3 @@ export async function getUserFarm(authToken, proxy, retries = 5) {
         return null;
     }
 }
-
